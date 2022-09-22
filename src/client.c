@@ -3,10 +3,11 @@
 #include<string.h>
 #include<stdio.h>
 #define DISPLAY_LENG 48
+#define TYPE_IP 0x800
 
 
 char *msg="This is a test message qwq";
-char *broadcast_addr="ff:ff:ff:ff:ff:ff";
+char *dest_addr="ff:ff:ff:ff:ff:ff";
 int callback(const void *buf,int len,int id)
 {
 	printf("length: %d device id: #%d device name: %s\n",len,id,find_device_id(id)->name);
@@ -21,7 +22,7 @@ int callback(const void *buf,int len,int id)
 
 int main()
 {
-	char cmd[109],name[109];
+	char cmd[257],name[257];
 	while(1)
 	{
 		scanf("%s",cmd);
@@ -51,7 +52,7 @@ int main()
 			case 's': // send frames
 				int id;
 				scanf("%d",&id);
-				if(send_frame(msg,strlen(msg),0x0800,broadcast_addr,id))
+				if(send_frame(msg,strlen(msg),TYPE_IP,dest_addr,id))
 					printf("Failed to send frame\n");
 				else
 					printf("Frame sent successfully\n");

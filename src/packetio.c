@@ -96,7 +96,7 @@ int receive_frame_loop(int cnt)
 			}
 		}
 	}
-	else // file descriptor does not exist, brute force through devices
+	else // file descriptor does not exist, brute force through devices (Hopefully we don't need this)
 	{
 		free(fds);
 		while(1)
