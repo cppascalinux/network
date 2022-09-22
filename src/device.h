@@ -75,7 +75,7 @@ device_t *find_device_fd(int fd);
 
 
 /* *
-* free the memory allocated by dev
+* Free the memory allocated by dev
 *
 * @param pointer to the device
 */

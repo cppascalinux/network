@@ -10,11 +10,11 @@
 
 ### PT 1
 
-see `./src/device.h` and `./src/device.c`
+see `./src/device.h` and `./src/device.c`. To get the list of network devices and their hardware address, I read from `/sys/class/net/xxx/address`(cause I don't know how to get the hardware address with `libpcap`!)
 
 ### PT 2
 
-see `./src/packetio.h` and `./src/packetio.c`
+see `./src/packetio.h` and `./src/packetio.c`. Here I used I/O multiplexing to support receiving packets from multiple devices simultaneously.
 
 ### CP 1 & CP 2
 
@@ -29,24 +29,28 @@ To demonstrate my implementation, I wrote `./src/client.c`. Type `make` in the t
 
 Here, the message in the frame is predefined in `./src/client.c`, and the destination address is `ff:ff:ff:ff:ff:ff`(broadcast). The callback funtion prints the length of the frame, the device that received the frame, and the first 48 bytes of the frame. 
 
-For the experiment, i used the topology provided in the example of `vnetUtils` (see `./vnetUtils/readme.md`). Hosts `ns0,ns2,ns4` sends frames to `ns3`. Here's the commands i used:
+For the experiment, I used the topology provided in the example of `vnetUtils` (see `./vnetUtils/readme.md`). Hosts `ns0,ns2,ns4` sends frames to `ns3`. Here's the commands I used:
 
 ```
 # ns0
+l
 a veth0-3
 s 1
 
 # ns2
+l
 a veth2-3
 s 1
 
 # ns3
+l
 a veth3-0
 a veth3-2
 a veth3-4
 r -1
 
 # ns4
+l
 a veth4-3
 s 1
 
@@ -54,8 +58,8 @@ s 1
 
 and here's the result:
 
-![img](/home/hjqwq/Programming/network/lab-netstack-premium/CP1.png)
+![img](./img/CP1.png)
 
-And we may also use this client to capture packets on real network:
+And we may also use this client to capture frames from real network devices:
 
-![img2](/home/hjqwq/Programming/network/lab-netstack-premium/CP2.png)
+![img2](./img/CP2.png)

@@ -17,7 +17,7 @@ typedef int (*frame_receive_callback)(const void*,int,int);
 extern frame_receive_callback global_callback;
 
 /* *
-* @bried wrap up function for the call back
+* @brief wrap up function for the call back
 */
 void callback_wrapper(u_char *user,const struct pcap_pkthdr *h,const u_char *bytes);
 
