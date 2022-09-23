@@ -14,8 +14,6 @@
 */
 typedef int (*frame_receive_callback)(const void*,int,int);
 
-extern frame_receive_callback global_callback;
-
 /* *
 * @brief wrap up function for the call back
 */

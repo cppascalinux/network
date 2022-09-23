@@ -8,7 +8,7 @@
 #include<stdio.h>
 #include<poll.h>
 
-frame_receive_callback global_callback;
+static frame_receive_callback global_callback;
 
 int send_frame(const void *buf,int len,int eth_type,const void *dest_mac,int id)
 {

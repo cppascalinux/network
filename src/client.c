@@ -6,11 +6,12 @@
 #define TYPE_IP 0x800
 
 
-char *msg="This is a test message qwq";
-char *dest_addr="ff:ff:ff:ff:ff:ff";
+static char *msg="This is a test message qwq";
+static char *dest_addr="ff:ff:ff:ff:ff:ff";
+static int cnt_packet;
 int callback(const void *buf,int len,int id)
 {
-	printf("length: %d device id: #%d device name: %s\n",len,id,find_device_id(id)->name);
+	printf("No.%d length: %d device id: #%d device name: %s\n",++cnt_packet,len,id,find_device_id(id)->name);
 	for(int i=0;i<len&&i<DISPLAY_LENG;i++)
 		printf("%02x ",((unsigned char*)buf)[i]);
 	printf("\n");
@@ -59,6 +60,7 @@ int main()
 				break;
 
 			case 'r': // receive frames
+				cnt_packet=0;
 				set_frame_receive_callback(callback);
 				int cnt;
 				scanf("%d",&cnt);
