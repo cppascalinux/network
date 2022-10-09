@@ -63,10 +63,10 @@ int main()
 			case 'r':
 				char smask[INET_ADDRSTRLEN],smac[30];
 				int id,hops,timeout;
-				scanf("%s%s%d%s%d%d",ssrc,smask,&id,smac,&hops,&timeout);
+				scanf("%s%s%d%s%d%d",sdst,smask,&id,smac,&hops,&timeout);
 				struct in_addr mask;
 				struct ether_addr mac;
-				inet_pton(AF_INET,ssrc,&src);
+				inet_pton(AF_INET,sdst,&dest);
 				inet_pton(AF_INET,smask,&mask);
 				ether_aton_r(smac,&mac);
 				update_routing_entry(dest,mask,id,mac,hops,timeout);

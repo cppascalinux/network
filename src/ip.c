@@ -36,12 +36,12 @@ int select_routing_entry(const struct in_addr dest,route_t *r)
 	for(route_t *p=route_head;p;p=p->next)
 		if((dest.s_addr&p->mask.s_addr)==p->dest.s_addr)
 		{
-			suc=1;
-			if(p->mask.s_addr>max_mask)
+			if(!suc||p->mask.s_addr>max_mask)
 			{
 				max_mask=p->mask.s_addr;
 				*r=*p;
 			}
+			suc=1;
 		}
 	pthread_mutex_unlock(&route_lock);
 	if(!suc)
@@ -84,7 +84,6 @@ int send_ip_packet(const struct in_addr src,const struct in_addr dest,int proto,
 int forward_ip_packet(const void *buf,int len)
 {
 	const unsigned char *temp=buf;
-	// printf("pwp\n");
 	temp+=8;
 	if(*temp==0)// ttl expired
 		return -1;
