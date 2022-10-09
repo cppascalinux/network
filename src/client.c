@@ -1,35 +1,26 @@
 #include"device.h"
 #include"packetio.h"
+#include"ip.h"
+#include<pthread.h>
+#include<malloc.h>
 #include<string.h>
 #include<stdio.h>
-#define DISPLAY_LENG 48
-#define TYPE_IP 0x800
-
-
-static char *msg="This is a test message qwq";
-static char *dest_addr="ff:ff:ff:ff:ff:ff";
-static int cnt_packet;
-int callback(const void *buf,int len,int id)
-{
-	printf("No.%d length: %d device id: #%d device name: %s\n",++cnt_packet,len,id,find_device_id(id)->name);
-	for(int i=0;i<len&&i<DISPLAY_LENG;i++)
-		printf("%02x ",((unsigned char*)buf)[i]);
-	printf("\n");
-	for(int i=0;i<len&&i<DISPLAY_LENG;i++)
-		putchar(((unsigned char*)buf)[i]);
-	printf("\n");
-	return 0;
-}
+#include<netinet/ip.h>
+#include<netinet/ether.h>
 
 int main()
 {
-	char cmd[257],name[257];
+	pthread_t router,timer;
+	pthread_create(&router,NULL,router_thread,NULL);
+	pthread_create(&timer,NULL,timer_thread,NULL);
+	set_ip_packet_receive_callback(print_packet);
+	char cmd[100];
 	while(1)
 	{
 		scanf("%s",cmd);
 		switch(cmd[0])
 		{
-			case 'l': // get list of available network devices
+			case 'l':
 				char **s=get_available_device();
 				if(!s)
 					printf("Failed to get available devices\n");
@@ -42,6 +33,7 @@ int main()
 				break;
 				
 			case 'a': // add device
+				char name[100];
 				scanf("%s",name);
 				int v=add_device(name);
 				if(v>0)
@@ -50,27 +42,34 @@ int main()
 					printf("Failed to add device\n");
 				break;
 
-			case 's': // send frames
-				int id;
-				scanf("%d",&id);
-				if(send_frame(msg,strlen(msg),TYPE_IP,dest_addr,id))
-					printf("Failed to send frame\n");
-				else
-					printf("Frame sent successfully\n");
+			case 's':
+				char ssrc[INET_ADDRSTRLEN],sdst[INET_ADDRSTRLEN],msg[100];
+				scanf("%s%s%s",ssrc,sdst,msg);
+				struct in_addr src,dest;
+				inet_pton(AF_INET,ssrc,&src);
+				inet_pton(AF_INET,sdst,&dest);
+				if(send_ip_packet(src,dest,0,msg,strlen(msg)))
+					fprintf(stderr,"Error: failed to send packet\n");
 				break;
-
-			case 'r': // receive frames
-				cnt_packet=0;
-				set_frame_receive_callback(callback);
-				int cnt;
-				scanf("%d",&cnt);
-				printf("Receiving %d frames\n",cnt);
-				receive_frame_loop(cnt);
-				printf("Received %d frames\n",cnt);
+			
+			case 'p':
+				print_routing_table();
 				break;
-
-			default:
-				printf("Unknown command: %c\n",cmd[0]);
+			
+			case 'd':
+				print_device_table();
+				break;
+			
+			case 'r':
+				char smask[INET_ADDRSTRLEN],smac[30];
+				int id,hops,timeout;
+				scanf("%s%s%d%s%d%d",ssrc,smask,&id,smac,&hops,&timeout);
+				struct in_addr mask;
+				struct ether_addr mac;
+				inet_pton(AF_INET,ssrc,&src);
+				inet_pton(AF_INET,smask,&mask);
+				ether_aton_r(smac,&mac);
+				update_routing_entry(dest,mask,id,mac,hops,timeout);
 		}
 	}
 	return 0;
