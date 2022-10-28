@@ -1,4 +1,4 @@
-/* *
+/**
 * @file ip.h
 * @brief Library supporting sending / receiving IP packets encapsulated
 in an Ethernet II frame .
@@ -11,7 +11,7 @@ in an Ethernet II frame .
 // maximum hops to deliver a packet
 #define MAX_HOPS 16
 // default route entry timeout (sec)
-#define ROUTE_TIMEOUT 3
+#define ROUTE_TIMEOUT 10
 // default interval (sec) for hosts to broadcast its routing table
 #define ROUTE_INTERVAL 1
 // Ethernet frame type: ip
@@ -45,6 +45,33 @@ extern pthread_mutex_t route_lock;
 
 // head pointer to global routing table
 extern route_t *route_head;
+
+/**
+ * @brief Compute the internet checksum of a given buffer
+ * 
+ * @param buf the input buffer
+ * @param len length of the buffer
+ * @return the checksum, in big-endian
+ */
+uint16_t net_checksum(const uint8_t *buf,size_t len);
+
+/**
+ * @brief Compute the checksum of the ip header
+ * 
+ * @param buf pointer to the buffer of the ip packet
+ * @return checksum of the ip header, in big endian.
+ */
+uint16_t ip_header_checksum(uint8_t *buf,size_t len,int fill);
+
+/**
+ * @brief Compute the TCP checksum given the IP packet.
+ * 
+ * @param buf Pointer to the start of the IP packet.
+ * @param fill Whether or not fill the checksum of the TCP header.
+ * @param len Length of the IP packet
+ * @return The checksum, in big-endian.
+ */
+uint16_t tcp_checksum(uint8_t *buf,size_t len,int fill);
 
 /**
  * @brief Select a routing entry according to the longest prefix rule
@@ -133,7 +160,7 @@ int update_distance_vector(int id,const unsigned char *buf,int len);
 
 /**
  * @brief Preprocess the received packet. 
- * It first drops out all loopback packets. 
+ * It first drops out all loopback packets, and corrupted packets with wrong header checksum.
  * Then it checks whether the packet is the routing table from its neighbours. 
  * Then it checks whether the destination address is itself. 
  * If so, it calls the ip_packet_receive_callback. 

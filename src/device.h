@@ -8,7 +8,7 @@
 #include<pthread.h>
 
 // default buffer timeout, in miliseconds
-#define BUF_TIMEOUT 100
+#define BUF_TIMEOUT 10
 
 /**
  * @brief device data type
@@ -64,6 +64,13 @@ void free_device_list(char **s);
  * @return A non - negative _device - ID_ on success , -1 on error .
  */
 int add_device(const char *name);
+
+/**
+ * @brief Add all devices, except lo, into the device list.
+ * 
+ * @return Number of devices added.
+ */
+int add_all_devices();
 
 /**
  * @brief Find a device added by ‘ add_device ‘.

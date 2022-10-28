@@ -17,15 +17,40 @@ route_t *route_head;
 static ip_packet_receive_callback global_callback;
 static pthread_mutex_t callback_lock=PTHREAD_MUTEX_INITIALIZER;
 
-unsigned int reverse_bytes(const struct in_addr addr)
+uint16_t net_checksum(const uint8_t *buf,size_t len)
 {
-	unsigned int x=0;
-	unsigned int y=addr.s_addr;
-	x|=(y>>24)&0xFF;
-	x|=(y>>8)&0xFF00;
-	x|=(y<<8)&0xFF0000;
-	x|=(y<<24)&0xFF000000;
-	return x;
+	uint32_t sum=0;
+	for(size_t i=0;i<len/2;i++)
+		sum+=ntohs(*(uint16_t*)(buf+2*i));
+	if(len&1)
+		sum+=(uint16_t)buf[len-1]<<8;
+	uint16_t mask=~0;
+	return htons((sum%mask)^mask);
+}
+
+uint16_t ip_header_checksum(uint8_t *buf,size_t len,int fill)
+{
+	uint16_t sum=net_checksum(buf,len);
+	if(fill)
+		*(uint16_t*)(buf+10)=sum;
+	return sum;
+}
+
+uint16_t tcp_checksum(uint8_t *buf,size_t len,int fill)
+{
+	uint16_t ip_header_len=(buf[0]&0xF)*4;
+	uint16_t tcp_len=len-ip_header_len;
+	uint8_t *tcp_buf=buf+ip_header_len;
+	uint8_t *sum_buf=calloc(tcp_len+12,1);
+	memcpy(sum_buf+12,tcp_buf,tcp_len);
+	memcpy(sum_buf+4,buf+12,8);
+	sum_buf[1]=IPPROTO_TCP;
+	*(uint16_t*)(sum_buf+2)=htons(tcp_len);
+	uint16_t sum=net_checksum(sum_buf,tcp_len+12);
+	if(fill)
+		*(uint16_t*)(tcp_buf+16)=sum;
+	free(sum_buf);
+	return sum;
 }
 
 int select_routing_entry(const struct in_addr dest,route_t *r)
@@ -59,7 +84,7 @@ int send_ip_packet(const struct in_addr src,const struct in_addr dest,int proto,
 		fprintf(stderr,"Error: send_ip_packet: could not find address %s in routing table\n",s);
 		return -1;
 	}
-	unsigned char *s=calloc(len+20,1);
+	uint8_t *s=calloc(len+20,1);
 	memcpy(s+20,buf,len);
 	len+=20;
 	s[0]=0x45;
@@ -71,12 +96,16 @@ int send_ip_packet(const struct in_addr src,const struct in_addr dest,int proto,
 	s[7]=0;
 	s[8]=0xFF;// TTL:255
 	s[9]=proto;
-	s[10]=s[11]=0;// Ignore header checksum
+	s[10]=s[11]=0;
 	*(unsigned int*)(s+12)=src.s_addr;
 	*(unsigned int*)(s+16)=dest.s_addr;
+	ip_header_checksum(s,20,1);// compute checksum
+	if(proto==IPPROTO_TCP)// compute the tcp checksum
+		tcp_checksum(s,len,1);
+	// printf("qwqwqwq\n");
 	int v=send_frame(s,len,ETH_TYPE_IP,rt.mac,rt.id);
 	if(v<0)
-		fprintf(stderr,"Error: send_ip_packet: could not send package on device %s\n",find_device_id(rt.id)->name);
+		fprintf(stderr,"Error: send_ip_packet: could not send packet on device %s\n",find_device_id(rt.id)->name);
 	free(s);
 	return v;
 }
@@ -90,6 +119,9 @@ int forward_ip_packet(const void *buf,int len)
 	unsigned char *nbuf=calloc(len,1);
 	memcpy(nbuf,buf,len);
 	nbuf[8]--;// tick ttl
+	nbuf[10]=nbuf[11]=0;// recompute checksum
+	uint8_t ip_header_len=(nbuf[0]&0xF)*4;
+	ip_header_checksum(nbuf,ip_header_len,1);
 	struct in_addr dest;
 	dest.s_addr=*(unsigned int*)(nbuf+16);
 	route_t rt;
@@ -226,8 +258,10 @@ int broadcast_distance_vector()
 	if(broadcast_frame(buf,len,ETH_TYPE_ROUTE,broadcast)<0)
 	{
 		fprintf(stderr,"Error: broad_cast_distance_vector: couldn't broadcast distance vector\n");
+		free(buf);
 		return -1;
 	}
+	free(buf);
 	return 0;
 }
 
@@ -288,15 +322,20 @@ int packet_preprocessor(const void* buf,int len,int id)
 		src.ether_addr_octet[i]=cbuf[i+6];
 	if(check_mac(src))// This is a loopback packet
 		return -1;
-	unsigned short typ=*(unsigned short*)(cbuf+12);
-	const unsigned char *ip_buf=cbuf+14;
+	uint16_t typ=*(unsigned short*)(cbuf+12);
+	uint8_t *ip_buf=(uint8_t*)cbuf+14;
 	if(typ==ETH_TYPE_ROUTE)// It'a a routing table
 	{
 		return update_distance_vector(id,buf,len);
 	}
 	else if(typ==ETH_TYPE_IP)// It's a IP packet
 	{
-		cbuf+=14;
+		uint16_t sum=ip_header_checksum((uint8_t*)ip_buf,(ip_buf[0]&0xF)*4,0);
+		if(sum!=0xFFFFU)// checksum validation failed!
+		{
+			fprintf(stderr,"Error: packet_preprocessor: ip header checksum validation failed 0x%04x\n",sum);
+			return -1;
+		}
 		struct in_addr dest;
 		dest.s_addr=*(const unsigned int*)(ip_buf+16);
 		if(check_ip_addr(dest))// This host is the destination of the packet
@@ -304,14 +343,14 @@ int packet_preprocessor(const void* buf,int len,int id)
 			if(global_callback)
 			{
 				pthread_mutex_lock(&callback_lock);
-				int v=(*global_callback)(ip_buf,len-18);
+				int v=(*global_callback)(ip_buf,len-14);
 				pthread_mutex_unlock(&callback_lock);
 				return v;
 			}
 		}
 		else// We need to route this packet
 		{
-			return forward_ip_packet(ip_buf,len-18);
+			return forward_ip_packet(ip_buf,len-14);
 		}
 	}
 	return 0;
@@ -319,6 +358,7 @@ int packet_preprocessor(const void* buf,int len,int id)
 
 void *router_thread(void *vargp)
 {
+	pthread_detach(pthread_self());
 	set_frame_receive_callback(packet_preprocessor);
 	receive_frame_loop(-1);
 	return NULL;
@@ -326,11 +366,13 @@ void *router_thread(void *vargp)
 
 void *timer_thread(void *vargp)
 {
+	pthread_detach(pthread_self());
 	while(1)
 	{
 		tick_routing_table();
 		route_local_device();
 		broadcast_distance_vector();
+		// print_routing_table();
 		sleep(ROUTE_INTERVAL);
 	}
 	return NULL;

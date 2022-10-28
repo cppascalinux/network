@@ -22,7 +22,8 @@ int send_frame(const void *buf,int len,int eth_type,const struct ether_addr dest
 		fprintf(stderr,"Error: send_frame: device #%d not found\n",id);
 		return -1;
 	}
-	unsigned char *frame=calloc(len+18,1);
+	// printf("send_frame: id:%d\n",id);
+	unsigned char *frame=calloc(len+14,1);
 	for(int i=0;i<6;i++)
 	{
 		frame[i]=dest_mac.ether_addr_octet[i];
@@ -33,7 +34,7 @@ int send_frame(const void *buf,int len,int eth_type,const struct ether_addr dest
 	memcpy(frame+14,buf,len);
 	int ret=0;
 	pthread_mutex_lock(&dev->lock);
-	if(pcap_sendpacket(dev->handle,frame,len+18))
+	if(pcap_sendpacket(dev->handle,frame,len+14))
 	{
 		fprintf(stderr,"Error: send_frame: device %s send failure\n",dev->name);
 		ret=-1;
@@ -50,6 +51,7 @@ int broadcast_frame(const void *buf,int len,int eth_type,const struct ether_addr
 	for(device_t *p=dev_head;p;p=p->next)
 		i++;
 	int tot=i;
+	// printf("broadcast_frame: tot: %d\n",tot);
 	int *lid=calloc(tot,sizeof(int));
 	i=0;
 	for(device_t *p=dev_head;p;p=p->next)
@@ -107,14 +109,14 @@ int receive_frame_loop(int cnt)
 			fds[i].revents=0;
 		}
 		// wait for IO
-		poll(fds,num_dev,-1);
+		poll(fds,num_dev,BUF_TIMEOUT);
 		for(int i=0;i<num_dev;i++)
 		{
 			if(fds[i].revents&POLLIN)
 			{
-				pthread_mutex_lock(&ar_dev[i]->lock);
+				// pthread_mutex_lock(&ar_dev[i]->lock);
 				int num_frame=pcap_dispatch(ar_dev[i]->handle,cnt,callback_wrapper,(unsigned char*)((long long)ar_dev[i]->id));
-				pthread_mutex_unlock(&ar_dev[i]->lock);
+				// pthread_mutex_unlock(&ar_dev[i]->lock);
 				if(num_frame<0)
 				{
 					fprintf(stderr,"Error: receive_frame_loop: could not receive from device %s\n",ar_dev[i]->name);

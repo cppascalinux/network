@@ -1,6 +1,6 @@
-#include"device.h"
-#include"packetio.h"
-#include"ip.h"
+#include"../src/device.h"
+#include"../src/packetio.h"
+#include"../src/ip.h"
 #include<pthread.h>
 #include<malloc.h>
 #include<string.h>
@@ -40,6 +40,11 @@ int main()
 					printf("Device added successfully with id: #%d\n",v);
 				else
 					printf("Failed to add device\n");
+				break;
+			
+			case 't':// add all devices
+				int num=add_all_devices();
+				printf("Successfully added %d devices\n",num);
 				break;
 
 			case 's':

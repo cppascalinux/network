@@ -145,6 +145,7 @@ int add_device(const char *name)
 		return -1;
 	}
 	pcap_set_timeout(handle,BUF_TIMEOUT);
+	// pcap_set_immediate_mode(handle,1);
 	if(pcap_activate(handle)<0)
 	{
 		fprintf(stderr,"Error: add_device: could not activate device %s\n",name);
@@ -159,6 +160,25 @@ int add_device(const char *name)
 	dev_head=dev;
 	pthread_mutex_unlock(&dev_lock);
 	return dev->id;
+}
+
+int add_all_devices()
+{
+	struct ifaddrs *ifap;
+	getifaddrs(&ifap);
+	int tot=0;
+	for(struct ifaddrs *p=ifap;p;p=p->ifa_next)
+	{
+		struct sockaddr_in d=*(struct sockaddr_in*)(p->ifa_addr);
+		if(d.sin_family==AF_INET&&strcmp(p->ifa_name,"lo"))
+		{
+			if(add_device(p->ifa_name)>0)
+				tot++;
+		}
+	}
+	freeifaddrs(ifap);
+	print_device_table();
+	return tot;
 }
 
 device_t *find_device_name(const char *name)
